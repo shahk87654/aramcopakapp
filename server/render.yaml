@@ -6,8 +6,8 @@ services:
     startCommand: node index.js
     envVars:
       - key: MONGO_URI
-        value: your_mongodb_connection_string_here
+        value: "mongodb+srv://Admin:Admin123@cluster0.qnpuz3d.mongodb.net/aramcoreviews?retryWrites=true&w=majority"
       - key: JWT_SECRET
-        value: aramco_review_secret_key_2025
+        value: replace_with_secure_random_string
       - key: NODE_ENV
         value: production

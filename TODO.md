@@ -1,0 +1,4 @@
+- [x] Remove rateLimit import from server/routes/reviews.js
+- [x] Remove reviewLimiter definition from server/routes/reviews.js
+- [x] Remove reviewLimiter from router.post middleware in server/routes/reviews.js
+- [x] Remove globalLimiter from server/index.js

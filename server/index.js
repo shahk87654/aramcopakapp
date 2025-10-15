@@ -18,14 +18,7 @@ app.use(xss());
 app.use(express.json({ limit: '10kb' }));
 app.use(cors({ origin: true }));
 
-// Global rate limiter (tunable)
-const globalLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 120, // limit each IP to 120 requests per windowMs
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(globalLimiter);
+
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -34,17 +27,35 @@ app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/captcha', require('./routes/captcha'));
 app.use('/api/rewards', require('./routes/rewards'));
+app.use('/api/health', require('./routes/health'));
+
+const connectToDatabase = require('./utils/mongodb');
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+connectToDatabase()
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Placeholder for routes
 app.get('/', (req, res) => res.send('Aramco Review API running'));
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const BASE_PORT = parseInt(process.env.PORT, 10) || 5000;
+
+// Try to listen, if port is in use try incrementally up to 5 times
+function startServer(port, attemptsLeft = 5) {
+  const server = app.listen(port, () => console.log(`Server running on port ${port}`));
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
+      console.warn(`Port ${port} in use, trying ${port + 1}...`);
+      startServer(port + 1, attemptsLeft - 1);
+    } else {
+      console.error('Server failed to start:', err);
+      process.exit(1);
+    }
+  });
+}
+
+startServer(BASE_PORT);
 
 // Log unhandled promise rejections and uncaught exceptions
 process.on('unhandledRejection', (reason, promise) => {

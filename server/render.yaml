@@ -6,7 +6,7 @@ services:
     startCommand: node index.js
     envVars:
       - key: MONGO_URI
-        value: mongodb+srv://Shahnawaz2003:Shahnawaz2003@cluster0.wxtwjas.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+        value: your_mongodb_connection_string_here
       - key: JWT_SECRET
         value: aramco_review_secret_key_2025
       - key: NODE_ENV

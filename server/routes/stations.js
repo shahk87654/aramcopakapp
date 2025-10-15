@@ -6,23 +6,43 @@ const QRCode = require('qrcode');
 
 // Get stations near GPS location
 router.get('/nearby', async (req, res) => {
-  const { lat, lng, radius = 5000 } = req.query;
-  if (!lat || !lng) return res.status(400).json({ msg: 'Missing lat/lng' });
-  const stations = await Station.find({
-    location: {
-      $near: {
-        $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
-        $maxDistance: parseInt(radius)
+  try {
+    const { lat, lng, radius = 5000 } = req.query;
+    if (!lat || !lng) return res.status(400).json({ msg: 'Missing lat/lng' });
+    const latNum = parseFloat(lat);
+    const lngNum = parseFloat(lng);
+    const radNum = parseInt(radius, 10);
+    if (Number.isNaN(latNum) || Number.isNaN(lngNum)) return res.status(400).json({ msg: 'Invalid lat/lng' });
+    const stations = await Station.find({
+      location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [lngNum, latNum] },
+          $maxDistance: radNum
+        }
       }
-    }
-  });
-  res.json(stations);
+    });
+    res.json(stations);
+  } catch (err) {
+    console.error('Nearby error:', err);
+    res.status(500).json({ msg: 'Server error' });
+  }
 });
 
 // Get all stations
 router.get('/', async (req, res) => {
-  const stations = await Station.find();
-  res.json(stations);
+  try {
+    const { stationId } = req.query;
+    if (stationId) {
+      const station = await Station.findOne({ stationId: stationId.toString() });
+      return res.json(station ? [station] : []);
+    }
+    const stations = await Station.find();
+    console.log('Stations found:', stations.length);
+    res.json(stations);
+  } catch (err) {
+    console.error('Get stations error:', err);
+    res.status(500).json({ msg: 'Server error' });
+  }
 });
 
 // Create station (admin only)

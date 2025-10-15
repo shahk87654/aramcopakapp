@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node server/index.js",
+    "start": "npm --prefix server install --omit=dev && node server/index.js",
     "build": "echo 'skip client build on CI'"
   },
   "dependencies": {

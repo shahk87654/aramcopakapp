@@ -1,5 +1,15 @@
 
 require('dotenv').config();
+// Diagnostic: report which Mongo-related environment variables are present (only names, not values)
+const _presentMongoVars = [];
+['MONGO_URI','MONGODB_URI','DATABASE_URL','DB_URI','MONGO_HOST','MONGO_PORT','MONGO_DBNAME','DB_NAME'].forEach(k => {
+  if (Object.prototype.hasOwnProperty.call(process.env, k)) _presentMongoVars.push(k);
+});
+if (_presentMongoVars.length) {
+  console.log('Using Mongo env vars detected:', _presentMongoVars.join(', '));
+} else {
+  console.log('No Mongo env vars detected at startup.');
+}
 const express = require('express');
 const mongoose = require('mongoose');
 const helmet = require('helmet');

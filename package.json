@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node server/index.js",
-    "build": "echo 'skip client build on CI'"
+    "build": "echo 'skip client build on CI'",
+    "postinstall": "npm --prefix server install"
   },
   "dependencies": {
     "mongodb": "^5.7.0"

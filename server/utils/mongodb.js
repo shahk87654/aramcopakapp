@@ -13,7 +13,17 @@ async function connectToDatabase() {
     }
 
     // Accept multiple common env var names used by different hosts/providers
-    let uri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.DB_URI;
+    // Include a few common nonstandard aliases some users/platforms may create (lowercase 'mongodb', 'MONGO')
+    const envCandidates = ['MONGO_URI','MONGODB_URI','DATABASE_URL','DB_URI','MONGO','mongodb','MONGODB'];
+    let uri = null;
+    let usedEnvVar = null;
+    for (const name of envCandidates) {
+        if (typeof process.env[name] === 'string' && process.env[name].length > 0) {
+            uri = process.env[name];
+            usedEnvVar = name;
+            break;
+        }
+    }
 
     // Helper: try to build a URI from component parts if provided
     const buildFromComponents = () => {
@@ -41,14 +51,24 @@ async function connectToDatabase() {
         if (built) {
             uri = built.uri;
             dbName = built.dbName;
-            console.warn('MONGO_URI missing or invalid. Built connection URI from components and falling back to', uri);
+            // Built URI from components; don't print credentials but report fallback
+            console.warn('MONGO_URI missing or invalid. Built connection URI from components and falling back to', '[built-from-components]');
         }
     }
 
     if (!uri || !/^mongodb(\+srv)?:\/\//.test(uri)) {
         // Provide an actionable error explaining how to fix this in the host
-        const hint = `Set one of MONGO_URI, MONGODB_URI, DATABASE_URL, or provide components MONGO_HOST/MONGO_PORT/MONGO_DBNAME (and optional MONGO_USER/MONGO_PASS). Example: MONGO_URI=mongodb+srv://<user>:<pass>@cluster0.mongodb.net/mydb`;
+        const hint = `Set one of MONGO_URI, MONGODB_URI, DATABASE_URL (or use MONGO / mongodb / DB_URI), or provide components MONGO_HOST/MONGO_PORT/MONGO_DBNAME (and optional MONGO_USER/MONGO_PASS). Example: MONGO_URI=mongodb+srv://<user>:<pass>@cluster0.mongodb.net/mydb`;
         throw new Error(`MONGO_URI environment variable is not set or invalid, and a fallback could not be built. ${hint}`);
+    }
+
+    // Helpful diagnostic: log which environment variable provided the URI (only the name, never the secret)
+    if (usedEnvVar) {
+        console.log('Mongo environment variable detected:', usedEnvVar);
+    } else if (dbName && uri) {
+        console.log('Mongo connection built from components (MONGO_HOST/MONGO_DBNAME etc.).');
+    } else {
+        console.log('No Mongo environment variable detected at connection time.');
     }
 
     const client = new MongoClient(uri, {

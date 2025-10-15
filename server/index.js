@@ -1,8 +1,25 @@
 
-require('dotenv').config();
+// Load environment variables from the .env file next to this index.js to ensure
+// dotenv is applied even when Node is started from the repo root or another CWD.
+const path = require('path');
+const dotenvPath = path.join(__dirname, '.env');
+require('dotenv').config({ path: dotenvPath });
+console.log(`Loaded environment from ${dotenvPath}`);
+// Auto-map common provider environment variable names to MONGO_URI if absent.
+// Some hosts (Railway, Render, etc.) expose the DB connection as DATABASE_URL or MONGODB_URI.
+// Copy those into MONGO_URI so our code (and other scripts) can read a single canonical name.
+if (!process.env.MONGO_URI) {
+  if (process.env.DATABASE_URL) {
+    process.env.MONGO_URI = process.env.DATABASE_URL;
+    console.log('Mapped DATABASE_URL -> MONGO_URI for compatibility');
+  } else if (process.env.MONGODB_URI) {
+    process.env.MONGO_URI = process.env.MONGODB_URI;
+    console.log('Mapped MONGODB_URI -> MONGO_URI for compatibility');
+  }
+}
 // Diagnostic: report which Mongo-related environment variables are present (only names, not values)
 const _presentMongoVars = [];
-['MONGO_URI','MONGODB_URI','DATABASE_URL','DB_URI','MONGO_HOST','MONGO_PORT','MONGO_DBNAME','DB_NAME'].forEach(k => {
+['MONGO_URI','MONGODB_URI','DATABASE_URL','DB_URI','MONGO','mongodb','MONGODB','MONGO_HOST','MONGO_PORT','MONGO_DBNAME','DB_NAME'].forEach(k => {
   if (Object.prototype.hasOwnProperty.call(process.env, k)) _presentMongoVars.push(k);
 });
 if (_presentMongoVars.length) {

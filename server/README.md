@@ -79,6 +79,19 @@ The repository root `package.json` was updated so the `start` script installs se
 - To test which env var name your host provides, print env vars in a lightweight start script or check the provider's dashboard for the injected variable name.
 
 If you'd like, I can (a) add `server/.env` to `.gitignore` and remove any committed `.env` from git history, or (b) add a startup log that prints which env var the app is using (without printing credentials).
+# How environment variables are loaded
+
+The server now explicitly loads the `.env` file located next to `server/index.js`. That means if you start Node from the repository root the server will still pick up `server/.env`. Example start commands that ensure the correct file is loaded:
+
+```powershell
+# from repo root
+node -r dotenv/config server/index.js dotenv_config_path=server/.env
+
+# or from the server directory
+cd server; node index.js
+```
+
+This avoids the common problem where dotenv doesn't find the `.env` because Node was started from a different working directory.
 # Aramco Review Platform - Server
 
 This is the Express backend for the Aramco station review and admin CRM platform.

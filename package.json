@@ -5,7 +5,8 @@
   "scripts": {
     "start": "npm --prefix server install --omit=dev && node server/index.js",
     "build": "echo 'skip client build on CI'",
-    "vercel:deploy": "vercel --prod --confirm"
+    "vercel:deploy": "vercel --prod --confirm",
+    "vercel:deploy:client": "vercel --prod --confirm --cwd client --name client --scope aramco-reviews-projects"
   },
   "dependencies": {
     "mongodb": "^5.7.0"

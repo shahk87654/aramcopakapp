@@ -25,6 +25,34 @@ const runBulkSeed = async () => {
   });
 };
 
+// Temporary helper: create or upsert an admin user (guarded by SEED_ENABLED + ADMIN_SEED_KEY)
+router.post('/create-admin', async (req, res) => {
+  try {
+    if (process.env.SEED_ENABLED !== 'true') return res.status(404).json({ msg: 'Not found' });
+    const key = req.headers['x-admin-seed-key'] || req.body?.adminSeedKey;
+    const expected = process.env.ADMIN_SEED_KEY;
+    if (!expected || key !== expected) return res.status(403).json({ msg: 'Forbidden' });
+    const User = require('../models/User');
+    const bcrypt = require('bcryptjs');
+    const jwt = require('jsonwebtoken');
+
+    const { email = 'admin@example.com', password = 'admin123' } = req.body || {};
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({ email, password: await bcrypt.hash(password, 10), isAdmin: true });
+      await user.save();
+    } else if (!user.isAdmin) {
+      user.isAdmin = true;
+      await user.save();
+    }
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ msg: 'Admin created', token, user: { id: user._id, email: user.email } });
+  } catch (err) {
+    console.error('create-admin error', err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
 // Dashboard stats
 router.get('/stats', auth, admin, async (req, res) => {
   const totalReviews = await Review.countDocuments();

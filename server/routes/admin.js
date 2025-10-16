@@ -113,6 +113,13 @@ module.exports = router;
 // Admin-only seeding endpoint (guarded by ADMIN_SEED_KEY env var)
 router.post('/seed-stations', async (req, res) => {
   try {
+    // Extra safety: only allow seeding when SEED_ENABLED is explicitly turned on.
+    // This prevents accidental or malicious runs in production. To seed, set SEED_ENABLED=true
+    // in the host environment temporarily, then unset it when done.
+    if (process.env.SEED_ENABLED !== 'true') {
+      console.warn('Seed endpoint hit but SEED_ENABLED !== true; refusing to run');
+      return res.status(404).json({ msg: 'Not found' });
+    }
     const key = req.headers['x-admin-seed-key'] || req.body?.adminSeedKey;
     const expected = process.env.ADMIN_SEED_KEY;
     if (!expected || key !== expected) return res.status(403).json({ msg: 'Forbidden' });

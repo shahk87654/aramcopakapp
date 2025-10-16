@@ -6,6 +6,7 @@ const Station = require('../models/Station');
 const User = require('../models/User');
 const Coupon = require('../models/Coupon');
 const auth = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
 
@@ -24,8 +25,12 @@ async function hasRecentReview({ contact }) {
   return count > 0;
 }
 
-// Submit review
-router.post('/', auth, [
+// Submit review (allow anonymous submissions)
+// We intentionally don't use the global `auth` middleware here because some
+// devices may have stale/invalid tokens in storage. Instead we parse any
+// provided token leniently: if the token verifies we use the user id, if it
+// fails we treat the request as anonymous rather than returning 401.
+router.post('/', [
   body('stationId').notEmpty(),
   body('rating').isInt({ min: 1, max: 5 }).toInt(),
   body('cleanliness').optional().isInt({ min: 0, max: 5 }).toInt(),
@@ -40,7 +45,29 @@ router.post('/', auth, [
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { stationId, rating, cleanliness, serviceSpeed, staffFriendliness, comment, name, contact, gps, deviceId } = req.body;
-  const userId = req.user.id;
+  // Lenient token parsing: accept a valid JWT and extract user id; if the
+  // token is missing or invalid, continue as anonymous (userId = null).
+  let userId = null;
+  try {
+    const raw = req.header('Authorization') || req.header('authorization') || '';
+    const token = raw.replace(/^Bearer\s+/i, '');
+    if (token) {
+      // Development convenience (dev-admin-token) is not used for regular
+      // review submissions; ignore it here.
+      if (token !== 'dev-admin-token') {
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          userId = decoded?.id || null;
+        } catch (err) {
+          console.warn('[reviews] Invalid JWT presented; treating as anonymous');
+          userId = null;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[reviews] Token parse error:', e);
+    userId = null;
+  }
   try {
     const station = await Station.findOne({ stationId });
     if (!station) return res.status(404).json({ msg: 'Station not found' });

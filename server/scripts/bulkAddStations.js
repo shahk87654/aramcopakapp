@@ -73,6 +73,7 @@ function detectDbNameFromUri(uri) {
 async function run() {
   // Prefer an explicit env var, else try to detect from URI. Avoid defaulting to 'admin'.
   const dbName = process.env.MONGO_DBNAME || process.env.DB_NAME || detectDbNameFromUri(process.env.MONGO_URI) || null;
+  console.log('Seed script detected dbName:', dbName);
   const connectOptions = { useNewUrlParser: true, useUnifiedTopology: true };
   if (dbName) connectOptions.dbName = dbName;
   await mongoose.connect(process.env.MONGO_URI, connectOptions);

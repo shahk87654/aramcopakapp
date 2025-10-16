@@ -44,15 +44,13 @@ router.get('/search', couponLimiter, async (req, res) => {
   const userIds = users.map(u => u._id);
   // Find latest review with this phone/contact
   const latestReview = await Review.findOne({ contact: phone }).sort({ createdAt: -1 });
-  // Aggregate visits and coupons
-  const [reviewAgg, coupons] = await Promise.all([
-    Review.aggregate([
-      { $match: { $or: [ { contact: phone }, { user: { $in: userIds } } ] } },
-      { $count: 'visits' }
-    ]),
-    Coupon.find({ user: { $in: userIds } }).populate('station')
-  ]);
-  const visits = reviewAgg[0]?.visits || 0;
+  // Find all matching reviews (visits) and coupons associated with user or review
+  const reviews = await Review.find({ $or: [ { contact: phone }, { user: { $in: userIds } } ] }).sort({ createdAt: -1 }).populate('station');
+  const reviewIds = reviews.map(r => r._id);
+
+  // Count visits and fetch coupons linked to either the user or the reviews
+  const visits = reviews.length;
+  const coupons = await Coupon.find({ $or: [ { user: { $in: userIds } }, { review: { $in: reviewIds } } ] }).populate('station');
   // Compose profile
   let name = null, contact = null, email = null, phoneNum = null;
   if (latestReview) {
@@ -63,7 +61,16 @@ router.get('/search', couponLimiter, async (req, res) => {
     email = users[0].email;
     phoneNum = users[0].phone;
   }
-  res.json({ visits, coupons, profile: { name, contact, email, phone: phoneNum } });
+  const visitsList = reviews.map(r => ({
+    id: r._id,
+    createdAt: r.createdAt,
+    station: r.station ? (r.station.name || r.station.stationName || null) : null,
+    rating: r.rating,
+    name: r.name,
+    contact: r.contact
+  }));
+
+  res.json({ visits, visitsList, coupons, profile: { name, contact, email, phone: phoneNum } });
 });
 
 // POST /api/rewards/claim (mark coupon as used)

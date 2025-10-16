@@ -34,3 +34,4 @@ client/.env.production.local
 # MongoDB
 *.mongodb
 *.db
+.vercel

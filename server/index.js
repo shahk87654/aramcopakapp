@@ -2,6 +2,7 @@
 // Load environment variables from the .env file next to this index.js to ensure
 // dotenv is applied even when Node is started from the repo root or another CWD.
 const path = require('path');
+const fs = require('fs');
 const dotenvPath = path.join(__dirname, '.env');
 require('dotenv').config({ path: dotenvPath });
 console.log(`Loaded environment from ${dotenvPath}`);
@@ -86,7 +87,20 @@ connectToDatabase()
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Placeholder for routes
-app.get('/', (req, res) => res.send('Aramco Review API running'));
+// If a client build exists, serve it (so the built client can call relative /api paths)
+const clientBuildPath = path.join(__dirname, '..', 'client', 'build');
+if (fs.existsSync(clientBuildPath)) {
+  console.log('Serving client build from', clientBuildPath);
+  app.use(express.static(clientBuildPath));
+  // Any non-API route should return the client's index.html
+  app.get('*', (req, res) => {
+    // If the request is for an API route, skip to the API handlers
+    if (req.path.startsWith('/api/')) return res.status(404).json({ msg: 'Not found' });
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => res.send('Aramco Review API running'));
+}
 
 const BASE_PORT = parseInt(process.env.PORT, 10) || 5000;
 

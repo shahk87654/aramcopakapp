@@ -36,6 +36,19 @@ const xss = require('xss-clean');
 const cors = require('cors');
 const app = express();
 
+// When running behind a reverse proxy (Railway, Render, Vercel, etc.) the
+// X-Forwarded-For header will be set by the platform. express-rate-limit and
+// other middleware rely on Express's `trust proxy` setting to read the
+// originating client IP correctly. Default to trusting the proxy unless the
+// environment explicitly disables it by setting TRUST_PROXY=false.
+const trustProxy = process.env.TRUST_PROXY !== 'false';
+if (trustProxy) {
+  app.set('trust proxy', true);
+  console.log('Express trust proxy enabled');
+} else {
+  console.log('Express trust proxy disabled (TRUST_PROXY=false)');
+}
+
 // Security middlewares
 app.use(helmet());
 app.use(mongoSanitize());
@@ -55,6 +68,15 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/captcha', require('./routes/captcha'));
 app.use('/api/rewards', require('./routes/rewards'));
 app.use('/api/health', require('./routes/health'));
+// Dev-only routes (seed, debug) - do not enable in production
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    app.use('/api/dev', require('./routes/dev'));
+    console.log('Dev routes enabled at /api/dev');
+  } catch (err) {
+    console.warn('Dev routes not available:', err.message);
+  }
+}
 
 const connectToDatabase = require('./utils/mongodb');
 

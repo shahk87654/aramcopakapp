@@ -9,6 +9,22 @@ const admin = require('../middleware/admin');
 
 const { v4: uuidv4 } = require('uuid');
 
+const path = require('path');
+const runBulkSeed = async () => {
+  // Import the seed script as a module by executing it in a child process-like way
+  const seedPath = path.join(__dirname, '..', 'scripts', 'bulkAddStations.js');
+  // Require the script file which will run when required; to avoid double-running in tests,
+  // spawn a new Node process to run it instead.
+  const { spawn } = require('child_process');
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [seedPath], { stdio: 'inherit' });
+    child.on('exit', (code) => {
+      if (code === 0) resolve(); else reject(new Error('Seed script failed with code ' + code));
+    });
+    child.on('error', reject);
+  });
+};
+
 // Dashboard stats
 router.get('/stats', auth, admin, async (req, res) => {
   const totalReviews = await Review.countDocuments();
@@ -93,3 +109,17 @@ router.get('/audit', auth, admin, async (req, res) => {
 });
 
 module.exports = router;
+
+// Admin-only seeding endpoint (guarded by ADMIN_SEED_KEY env var)
+router.post('/seed-stations', async (req, res) => {
+  try {
+    const key = req.headers['x-admin-seed-key'] || req.body?.adminSeedKey;
+    const expected = process.env.ADMIN_SEED_KEY;
+    if (!expected || key !== expected) return res.status(403).json({ msg: 'Forbidden' });
+    await runBulkSeed();
+    res.json({ msg: 'Seed started' });
+  } catch (err) {
+    console.error('Seed error:', err);
+    res.status(500).json({ msg: 'Seed failed', error: err.message });
+  }
+});

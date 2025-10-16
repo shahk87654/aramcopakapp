@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "npm --prefix server install --omit=dev && node server/index.js",
-    "build": "echo 'skip client build on CI'"
+    "build": "echo 'skip client build on CI'",
+    "vercel:deploy": "vercel --prod --confirm"
   },
   "dependencies": {
     "mongodb": "^5.7.0"

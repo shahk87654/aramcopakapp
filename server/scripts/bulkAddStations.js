@@ -59,9 +59,23 @@ const stations = [
 const lng = 74.3587;
 const lat = 31.5204;
 
+function detectDbNameFromUri(uri) {
+  if (!uri) return null;
+  try {
+    const m = uri.match(/\/([^\/?]+)(?:\?|$)/);
+    if (m && m[1]) return m[1];
+  } catch (e) {
+    // ignore
+  }
+  return null;
+}
+
 async function run() {
-  const dbName = process.env.MONGO_DBNAME || 'admin';
-  await mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true, dbName });
+  // Prefer an explicit env var, else try to detect from URI. Avoid defaulting to 'admin'.
+  const dbName = process.env.MONGO_DBNAME || process.env.DB_NAME || detectDbNameFromUri(process.env.MONGO_URI) || null;
+  const connectOptions = { useNewUrlParser: true, useUnifiedTopology: true };
+  if (dbName) connectOptions.dbName = dbName;
+  await mongoose.connect(process.env.MONGO_URI, connectOptions);
   for (const s of stations) {
     try {
       const res = await Station.findOneAndUpdate(

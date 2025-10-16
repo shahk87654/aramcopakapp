@@ -43,7 +43,7 @@ async function connectToDatabase() {
     };
 
     const hasValidScheme = typeof uri === 'string' && /^mongodb(\+srv)?:\/\//.test(uri);
-    let dbName = process.env.MONGO_DBNAME || process.env.DB_NAME || 'admin';
+    let dbName = process.env.MONGO_DBNAME || process.env.DB_NAME || null;
 
     if (!hasValidScheme) {
         // Try building from component environment variables (useful on Railway/other platforms)
@@ -53,6 +53,15 @@ async function connectToDatabase() {
             dbName = built.dbName;
             // Built URI from components; don't print credentials but report fallback
             console.warn('MONGO_URI missing or invalid. Built connection URI from components and falling back to', '[built-from-components]');
+        }
+    }
+
+    // If the URI contains an explicit database name, use it (handles mongodb+srv://.../mydb?...)
+    if (uri && /^mongodb(\+srv)?:\/\//.test(uri) && !dbName) {
+        const m = uri.match(/\/([^\/?]+)(?:\?|$)/);
+        if (m && m[1]) {
+            dbName = m[1];
+            console.log('Detected database name from URI:', dbName);
         }
     }
 

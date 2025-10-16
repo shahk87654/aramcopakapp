@@ -83,4 +83,25 @@ router.post('/claim', couponLimiter, auth, async (req, res) => {
   res.json({ msg: 'Coupon claimed', coupon });
 });
 
+// POST /api/rewards/scan - lookup coupon by code for scanning via camera
+router.post('/scan', couponLimiter, async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ msg: 'Coupon code required' });
+  const coupon = await Coupon.findOne({ code }).populate('station user review');
+  if (!coupon) return res.status(404).json({ msg: 'Coupon not found' });
+
+  // Prefer friendly station name if available
+  let stationName = null;
+  if (coupon.station) {
+    stationName = coupon.station.name || coupon.station.stationName || null;
+  }
+
+  res.json({
+    code: coupon.code,
+    used: !!coupon.used,
+    station: stationName,
+    coupon
+  });
+});
+
 module.exports = router;

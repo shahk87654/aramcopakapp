@@ -10,20 +10,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
 
-// Helper: check if a review from the same contact (phone) exists in the last 18 hours
-// Enforced ONLY by contact when provided. If contact is missing, no cooldown is applied here.
-// NOTE: This is global (across stations) and only uses the phone number.
-async function hasRecentReview({ contact }) {
-  if (!contact) return false; // no contact -> don't block
-  const since = new Date(Date.now() - 18 * 60 * 60 * 1000); // 18 hours
-  const query = {
-    contact,
-    createdAt: { $gte: since }
-  };
-  const count = await Review.countDocuments(query);
-  console.log(`[reviews] hasRecentReview: contact="${contact}", since="${since.toISOString()}", count=${count}`);
-  return count > 0;
-}
+// NOTE: 18-hour cooldown removed. Users may submit reviews without the previous 18-hour restriction.
 
 // Submit review (allow anonymous submissions)
 // We intentionally don't use the global `auth` middleware here because some
@@ -71,12 +58,8 @@ router.post('/', [
   try {
     const station = await Station.findOne({ stationId });
     if (!station) return res.status(404).json({ msg: 'Station not found' });
-    // Enforce 18-hour restriction: prevent multiple reviews from the same phone number
-  const contact = req.body.contact;
-  console.log(`[reviews] submit attempt: station="${station.stationId}", contact="${contact}", userId="${userId}", ip="${req.ip}"`);
-  // Enforce cooldown only by phone/contact globally for 18 hours
-  const recent = await hasRecentReview({ contact });
-    if (recent) return res.status(429).json({ msg: 'You can only submit one review per phone number every 18 hours' });
+      const contact = req.body.contact;
+      console.log(`[reviews] submit attempt: station="${station.stationId}", contact="${contact}", userId="${userId}", ip="${req.ip}"`);
     
     // Create review
     const reviewData = {

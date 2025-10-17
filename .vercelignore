@@ -1,0 +1,13 @@
+node_modules
+client/node_modules
+client-clean/node_modules
+.git
+.git/**
+**/*.tar
+**/*.tgz
+**/*.zip
+**/*.map
+client/build/static/js/*.map
+client-clean/build/static/js/*.map
+**/.cache
+client-export.tar

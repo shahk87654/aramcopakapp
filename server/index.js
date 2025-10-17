@@ -59,6 +59,29 @@ app.use(xss());
 app.use(express.json({ limit: '10kb' }));
 app.use(cors({ origin: true }));
 
+// If the server receives requests for known API paths without the '/api'
+// prefix (for example a request to '/stations' instead of '/api/stations')
+// rewrite the request URL in-place so existing route handlers continue to work.
+// This makes the API origin tolerant of clients that forget the '/api' prefix
+// and avoids returning the frontend index.html for those requests.
+app.use((req, res, next) => {
+  try {
+    const apiRoots = ['stations', 'reviews', 'admin', 'rewards', 'auth', 'captcha', 'health'];
+    const path = req.path || '';
+    // If the path already starts with '/api', do nothing
+    if (path.startsWith('/api')) return next();
+    // Check if the first segment matches a known API root
+    const firstSeg = path.split('/').filter(Boolean)[0];
+    if (firstSeg && apiRoots.includes(firstSeg)) {
+      // Rewrite the URL to prefix with '/api' and continue
+      req.url = '/api' + req.url;
+    }
+  } catch (e) {
+    // ignore and continue
+  }
+  return next();
+});
+
 
 
 // Routes

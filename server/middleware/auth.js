@@ -3,9 +3,11 @@ const jwt = require('jsonwebtoken');
 module.exports = function (req, res, next) {
   // Accept Authorization or authorization headers, with or without 'Bearer '
   const raw = req.header('Authorization') || req.header('authorization') || '';
-  const token = raw.replace(/^Bearer\s+/i, '');
-  // If no token supplied, continue as anonymous (some endpoints allow anonymous submissions, e.g., reviews)
-  if (!token) {
+  const token = raw.replace(/^Bearer\s+/i, '').trim();
+  // Treat empty, whitespace-only, or literal 'null'/'undefined' strings as no token.
+  // This guards against clients that accidentally send the string 'null' when no token
+  // exists (common when localStorage contains the literal string 'null').
+  if (!token || token.toLowerCase() === 'null' || token.toLowerCase() === 'undefined') {
     req.user = { id: null };
     return next();
   }

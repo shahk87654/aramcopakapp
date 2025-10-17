@@ -6,6 +6,8 @@ const CouponSchema = new mongoose.Schema({
   review: { type: mongoose.Schema.Types.ObjectId, ref: 'Review' },
   station: { type: mongoose.Schema.Types.ObjectId, ref: 'Station' },
   used: { type: Boolean, default: false },
+  usedAt: { type: Date },
+  claimedBy: { type: String },
   createdAt: { type: Date, default: Date.now },
   expiresAt: { type: Date }
 });

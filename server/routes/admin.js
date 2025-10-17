@@ -116,16 +116,23 @@ router.get('/coupons', auth, admin, async (req, res) => {
   res.json(coupons);
 });
 
-// Manual coupon generation (admin)
+// Manual coupon generation (admin) - supports creating multiple coupons via `count`
 router.post('/coupons', auth, admin, async (req, res) => {
-  const { userId, reviewId, stationId } = req.body;
+  const { userId, reviewId, stationId, count = 1 } = req.body;
   if (!userId || !stationId) return res.status(400).json({ msg: 'userId and stationId required' });
+  const n = parseInt(count, 10) || 1;
+  if (n < 1 || n > 100) return res.status(400).json({ msg: 'count must be between 1 and 100' });
   try {
-    const code = uuidv4();
-    const coupon = new Coupon({ code, user: userId, review: reviewId, station: stationId });
-    await coupon.save();
-    res.json({ msg: 'Coupon generated', coupon });
+    const created = [];
+    for (let i = 0; i < n; i++) {
+      const code = uuidv4();
+      const coupon = new Coupon({ code, user: userId, review: reviewId, station: stationId });
+      await coupon.save();
+      created.push(coupon);
+    }
+    res.json({ msg: 'Coupon(s) generated', coupons: created });
   } catch (err) {
+    console.error('admin coupons generation error', err);
     res.status(500).json({ msg: 'Server error' });
   }
 });

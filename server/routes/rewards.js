@@ -66,6 +66,10 @@ router.get('/search', couponLimiter, async (req, res) => {
     createdAt: r.createdAt,
     station: r.station ? (r.station.name || r.station.stationName || null) : null,
     rating: r.rating,
+    cleanliness: r.cleanliness,
+    serviceSpeed: r.serviceSpeed,
+    staffFriendliness: r.staffFriendliness,
+    comment: r.comment,
     name: r.name,
     contact: r.contact
   }));
@@ -86,6 +90,17 @@ router.post('/claim', couponLimiter, auth, async (req, res) => {
   }
   coupon.used = true;
   coupon.usedAt = new Date();
+  // Record the claiming user's display name (prefer user's email/phone or review name)
+  let claimerName = null;
+  try {
+    const u = await User.findById(req.user.id);
+    if (u) claimerName = u.email || u.phone || null;
+  } catch (e) { /* ignore */ }
+  if (!claimerName && coupon.review) {
+    const r = await Review.findById(coupon.review);
+    if (r) claimerName = r.name || null;
+  }
+  coupon.claimedBy = claimerName;
   await coupon.save();
   res.json({ msg: 'Coupon claimed', coupon });
 });

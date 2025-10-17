@@ -10,7 +10,8 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
 
-// NOTE: 18-hour cooldown removed. Users may submit reviews without the previous 18-hour restriction.
+// Enforce 18-hour cooldown per deviceId/contact to prevent rapid resubmissions.
+// If deviceId is provided, use it; otherwise fallback to contact (phone) and IP.
 
 // Submit review (allow anonymous submissions)
 // We intentionally don't use the global `auth` middleware here because some
@@ -59,8 +60,16 @@ router.post('/', [
     const station = await Station.findOne({ stationId });
     if (!station) return res.status(404).json({ msg: 'Station not found' });
     console.log(`[reviews] submit attempt: station="${station.stationId}", contact="${contact}", userId="${userId}", ip="${req.ip}"`);
-    
-    // Create review
+    // Cooldown enforcement: check for any recent review from same deviceId/contact within 18 hours
+    const cooldownWindowMs = 18 * 60 * 60 * 1000; // 18 hours
+    const since = new Date(Date.now() - cooldownWindowMs);
+    const cooldownQuery = { station: station._id, createdAt: { $gte: since } };
+    if (deviceId) cooldownQuery.deviceId = deviceId; else cooldownQuery.$or = [{ contact }, { ip: req.ip }];
+    const recent = await Review.findOne(cooldownQuery);
+    if (recent) {
+      return res.status(429).json({ msg: 'Please wait 18 hours before submitting another review for this station' });
+    }
+    // Create review (store all rating fields so detailed output is available)
     const reviewData = {
       station: station._id,
       rating,

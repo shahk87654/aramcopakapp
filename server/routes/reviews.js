@@ -59,15 +59,37 @@ router.post('/', [
   try {
     const station = await Station.findOne({ stationId });
     if (!station) return res.status(404).json({ msg: 'Station not found' });
-    console.log(`[reviews] submit attempt: station="${station.stationId}", contact="${contact}", userId="${userId}", ip="${req.ip}"`);
-    // Cooldown enforcement: check for any recent review from same deviceId/contact within 18 hours
+    console.log(`[reviews] submit attempt: station="${station.stationId}", contact="${contact}", userId="${userId}", ip="${req.ip}", deviceId="${deviceId || ''}"`);
+    // Cooldown enforcement: check for any recent review within 18 hours.
+    // Rules:
+    // - If the request is from an authenticated user (valid ObjectId in userId),
+    //   enforce the cooldown globally for that user across all stations.
+    // - Otherwise (anonymous), enforce the cooldown by deviceId when present,
+    //   or fall back to contact (phone) and IP.
     const cooldownWindowMs = 18 * 60 * 60 * 1000; // 18 hours
     const since = new Date(Date.now() - cooldownWindowMs);
-    const cooldownQuery = { station: station._id, createdAt: { $gte: since } };
-    if (deviceId) cooldownQuery.deviceId = deviceId; else cooldownQuery.$or = [{ contact }, { ip: req.ip }];
+    const isAuthedUser = mongoose.isValidObjectId(userId);
+    let cooldownQuery = { createdAt: { $gte: since } };
+    if (isAuthedUser) {
+      cooldownQuery.user = userId; // global per-user cooldown
+    } else {
+      // anonymous: try deviceId first, else contact or IP
+      if (deviceId) {
+        cooldownQuery.deviceId = deviceId;
+      } else {
+        cooldownQuery.$or = [{ contact }, { ip: req.ip }];
+      }
+    }
     const recent = await Review.findOne(cooldownQuery);
     if (recent) {
-      return res.status(429).json({ msg: 'Please wait 18 hours before submitting another review for this station' });
+      // Compute remaining cooldown time and set Retry-After header (in seconds)
+      const lastTs = new Date(recent.createdAt).getTime();
+      const elapsed = Date.now() - lastTs;
+      const remainingMs = cooldownWindowMs - elapsed;
+      const retryAfterSec = remainingMs > 0 ? Math.ceil(remainingMs / 1000) : 0;
+      // Set Retry-After header so clients know when to retry
+      res.set('Retry-After', String(retryAfterSec));
+      return res.status(429).json({ msg: 'Please wait 18 hours before submitting another review', retryAfter: retryAfterSec });
     }
     // Create review (store all rating fields so detailed output is available)
     const reviewData = {

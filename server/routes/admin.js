@@ -101,6 +101,46 @@ router.get('/reviews', auth, admin, async (req, res) => {
   res.json(reviews);
 });
 
+// Group reviews by user (for admin dashboard): returns an array of users (or contact buckets)
+// Each item contains user info (email/phone if present) and an array of their reviews with per-section ratings
+router.get('/reviews-by-user', auth, admin, async (req, res) => {
+  try {
+    // Fetch all reviews and populate user and station
+    const reviews = await Review.find().populate('user station').lean();
+
+    // Group by user id when present, otherwise by contact string
+    const groups = {};
+    for (const r of reviews) {
+      const key = r.user?._id ? `user:${r.user._id}` : `contact:${r.contact || ('anon:' + (r._id || Math.random()))}`;
+      if (!groups[key]) {
+        groups[key] = {
+          userId: r.user?._id || null,
+          email: r.user?.email || null,
+          phone: r.user?.phone || r.contact || null,
+          reviews: []
+        };
+      }
+      groups[key].reviews.push({
+        _id: r._id,
+        station: r.station ? { _id: r.station._id, name: r.station.name, stationId: r.station.stationId } : null,
+        rating: r.rating,
+        cleanliness: r.cleanliness,
+        serviceSpeed: r.serviceSpeed,
+        staffFriendliness: r.staffFriendliness,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        flagged: r.flagged
+      });
+    }
+
+    const out = Object.values(groups).map(g => ({ ...g, reviewCount: g.reviews.length }));
+    res.json(out);
+  } catch (err) {
+    console.error('reviews-by-user error', err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
 // Flag/unflag review
 router.post('/reviews/:id/flag', auth, admin, async (req, res) => {
   const review = await Review.findById(req.params.id);

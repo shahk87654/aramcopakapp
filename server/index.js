@@ -94,8 +94,10 @@ if (fs.existsSync(clientBuildPath)) {
   app.use(express.static(clientBuildPath));
   // Any non-API route should return the client's index.html
   app.get('*', (req, res) => {
-    // If the request is for an API route, skip to the API handlers
-    if (req.path.startsWith('/api/')) return res.status(404).json({ msg: 'Not found' });
+    // If the request is for an API route (including exact '/api'), skip to the API handlers
+    // Previously this checked only for '/api/' which allowed exact '/api' to fall through
+    // and return the frontend index.html. Treat any path starting with '/api' as an API route.
+    if (req.path.startsWith('/api')) return res.status(404).json({ msg: 'Not found' });
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
 } else {

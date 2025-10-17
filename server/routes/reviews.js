@@ -60,26 +60,12 @@ router.post('/', [
     const station = await Station.findOne({ stationId });
     if (!station) return res.status(404).json({ msg: 'Station not found' });
     console.log(`[reviews] submit attempt: station="${station.stationId}", contact="${contact}", userId="${userId}", ip="${req.ip}", deviceId="${deviceId || ''}"`);
-    // Cooldown enforcement: check for any recent review within 18 hours.
-    // Rules:
-    // - If the request is from an authenticated user (valid ObjectId in userId),
-    //   enforce the cooldown globally for that user across all stations.
-    // - Otherwise (anonymous), enforce the cooldown by deviceId when present,
-    //   or fall back to contact (phone) and IP.
+    // Cooldown enforcement: check for any recent review within 18 hours by phone number only.
+    // We rely solely on the `contact` (phone) field to determine cooldowns. If contact
+    // is missing, skip cooldown enforcement (the endpoint requires contact by validation).
     const cooldownWindowMs = 18 * 60 * 60 * 1000; // 18 hours
     const since = new Date(Date.now() - cooldownWindowMs);
-    const isAuthedUser = mongoose.isValidObjectId(userId);
-    let cooldownQuery = { createdAt: { $gte: since } };
-    if (isAuthedUser) {
-      cooldownQuery.user = userId; // global per-user cooldown
-    } else {
-      // anonymous: try deviceId first, else contact or IP
-      if (deviceId) {
-        cooldownQuery.deviceId = deviceId;
-      } else {
-        cooldownQuery.$or = [{ contact }, { ip: req.ip }];
-      }
-    }
+    const cooldownQuery = { contact, createdAt: { $gte: since } };
     const recent = await Review.findOne(cooldownQuery);
     if (recent) {
       // Compute remaining cooldown time and set Retry-After header (in seconds)

@@ -6,10 +6,17 @@ module.exports = async function (req, res, next) {
     console.debug('Admin middleware: no authenticated user present');
     return res.status(401).json({ msg: 'Unauthorized' });
   }
+  
   // Development shortcut: accept the dev-admin id without querying the DB.
   // For safety, in production this shortcut is disabled unless the host
   // explicitly opts-in by setting ALLOW_DEV_ADMIN=true in the environment.
-  if ((process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_ADMIN === 'true') && req.user.id === 'dev-admin') return next();
+  if (req.user.id === 'dev-admin') {
+    if (process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_ADMIN === 'true') {
+      return next();
+    }
+    return res.status(403).json({ msg: 'Dev admin not allowed in production' });
+  }
+  
   try {
     const user = await User.findById(req.user.id);
     if (!user || !user.isAdmin) return res.status(403).json({ msg: 'Admin only' });
